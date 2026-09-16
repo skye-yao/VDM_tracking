@@ -7,9 +7,9 @@ from pathlib import Path as FsPath
 import numpy as np
 
 
-def create_output_dir(label):
+def create_output_dir(label, root="outputs"):
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_dir = FsPath("outputs") / f"{stamp}_{label}"
+    output_dir = FsPath(root) / f"{stamp}_{label}"
     output_dir.mkdir(parents=True, exist_ok=True)
     return output_dir
 
@@ -100,8 +100,21 @@ def _safe_nanmax(values):
     return float(np.nanmax(values))
 
 
+def _safe_nanmean(values):
+    values = np.asarray(values, dtype=float)
+    if values.size == 0 or np.all(np.isnan(values)):
+        return float("nan")
+    return float(np.nanmean(values))
+
+
 def compute_metrics(path, records):
-    lateral_errors = np.array([abs(r.lateral_error) for r in records], dtype=float)
+    if not records:
+        raise ValueError("没有仿真记录，无法计算指标。")
+
+    signed_lateral_errors = np.array(
+        [r.lateral_error for r in records], dtype=float
+    )
+    lateral_errors = np.abs(signed_lateral_errors)
     heading_errors = np.array([abs(r.heading_error) for r in records], dtype=float)
     speeds = np.array([r.speed for r in records], dtype=float)
     steers = np.array([abs(r.steer) for r in records], dtype=float)
@@ -109,12 +122,25 @@ def compute_metrics(path, records):
     normal_accels = np.array([abs(r.normal_accel) for r in records], dtype=float)
     betas = np.array([abs(r.beta) for r in records], dtype=float)
     yaw_rates = np.array([abs(r.yaw_rate) for r in records], dtype=float)
+    compute_times = np.array([r.control_compute_ms for r in records], dtype=float)
+    target_speeds = np.array([r.target_speed for r in records], dtype=float)
+    times = np.array([r.time for r in records], dtype=float)
+    if len(records) > 1:
+        dt = np.diff(times)
+        steer_rates = np.diff(np.array([r.steer for r in records], dtype=float)) / dt
+        steer_rate_abs = np.abs(steer_rates[np.isfinite(steer_rates)])
+    else:
+        steer_rate_abs = np.empty(0, dtype=float)
     last = records[-1]
     finish_error = float(np.hypot(last.x - path.x[-1], last.y - path.y[-1]))
+    reached_goal = bool(finish_error < 1.5 and last.speed < 0.5)
+    elapsed_time = float(times[-1] - times[0]) if len(times) > 1 else 0.0
 
     return {
         "mean_lateral_error_m": float(lateral_errors.mean()),
         "max_lateral_error_m": float(lateral_errors.max()),
+        "rmse_lateral_error_m": float(np.sqrt(np.mean(signed_lateral_errors ** 2))),
+        "p95_lateral_error_m": float(np.percentile(lateral_errors, 95)),
         "finish_error_m": finish_error,
         "mean_heading_error_rad": float(heading_errors.mean()),
         "max_steer_rad": float(steers.max()),
@@ -123,8 +149,18 @@ def compute_metrics(path, records):
         "max_side_slip_beta_rad": _safe_nanmax(betas),
         "max_yaw_rate_radps": _safe_nanmax(yaw_rates),
         "min_speed_mps": float(speeds.min()),
+        "mean_speed_mps": float(speeds.mean()),
+        "mean_target_speed_mps": float(target_speeds.mean()),
+        "max_speed_mps": float(speeds.max()),
+        "mean_abs_steer_rate_radps": _safe_nanmean(steer_rate_abs),
+        "max_abs_steer_rate_radps": _safe_nanmax(steer_rate_abs),
+        "control_compute_mean_ms": _safe_nanmean(compute_times),
+        "control_compute_p95_ms": float(np.percentile(compute_times, 95)),
+        "control_compute_max_ms": _safe_nanmax(compute_times),
+        "elapsed_time_s": elapsed_time,
+        "completion_time_s": elapsed_time if reached_goal else None,
         "steps": len(records),
-        "reached_goal": bool(finish_error < 1.5 and last.speed < 0.5),
+        "reached_goal": reached_goal,
     }
 
 
@@ -132,4 +168,11 @@ def save_metrics(output_dir, metrics):
     path = output_dir / "metrics.json"
     with path.open("w", encoding="utf-8") as f:
         json.dump(metrics, f, ensure_ascii=False, indent=2)
+    return path
+
+
+def save_run_metadata(output_dir, metadata):
+    path = FsPath(output_dir) / "run_metadata.json"
+    with path.open("w", encoding="utf-8") as f:
+        json.dump(metadata, f, ensure_ascii=False, indent=2)
     return path

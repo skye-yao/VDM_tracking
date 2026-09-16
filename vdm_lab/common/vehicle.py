@@ -3,13 +3,28 @@ from vdm_lab.common.geometry import clamp, pi_to_pi
 from vdm_lab.common.types import ControlCommand, VehicleConfig, VehicleState
 
 
-def limit_command(command, vehicle_config):
+def limit_command(command, vehicle_config, previous_command=None, dt=None):
+    """Apply vehicle limits shared by every controller.
+
+    ``previous_command`` and ``dt`` are optional to retain the small public
+    helper API used by existing exercises.  The simulation loop supplies both
+    values so PP, LQR and MPC are subject to the same steering slew limit.
+    """
     acceleration = clamp(
         command.acceleration,
         -vehicle_config.max_decel,
         vehicle_config.max_accel,
     )
     steer = clamp(command.steer, -vehicle_config.max_steer, vehicle_config.max_steer)
+    if previous_command is not None and dt is not None:
+        if dt <= 0.0:
+            raise ValueError("控制周期 dt 必须为正数。")
+        max_change = vehicle_config.max_steer_rate * dt
+        steer = clamp(
+            steer,
+            previous_command.steer - max_change,
+            previous_command.steer + max_change,
+        )
     limited = ControlCommand(acceleration=acceleration, steer=steer)
     if hasattr(command, "prediction"):
         limited.prediction = command.prediction

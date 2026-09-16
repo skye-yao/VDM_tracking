@@ -53,6 +53,16 @@ VEHICLE_PARAMETER_SETS = {
 
 DEFAULT_VEHICLE_NAME = "student_car"
 
+# Do not populate this from the course slides.  The active vehicle launch file
+# is the only source of truth immediately before an R3 experiment.  The
+# checklist deliberately lives next to simulation parameters so that a real
+# vehicle preset is not created with guessed values.
+R3_REAL_CAR_PARAMETER_CHECKLIST = (
+    "wheelbase", "width", "front_overhang", "rear_overhang", "wheel_track",
+    "max_steer", "max_steer_rate", "max_accel", "max_decel", "max_speed",
+    "min_speed", "mass", "inertia_z", "lf", "lr", "cf", "cr",
+)
+
 
 def available_vehicle_names():
     return tuple(VEHICLE_PARAMETER_SETS.keys())

@@ -154,3 +154,4 @@ class StepRecord:
     curvature: float
     normal_accel: float
     target_speed: float
+    control_compute_ms: float

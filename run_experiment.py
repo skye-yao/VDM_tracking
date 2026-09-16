@@ -9,6 +9,7 @@ from vdm_lab.common.logging import (
     save_predictions,
     save_records,
     save_reference_path,
+    save_run_metadata,
 )
 from vdm_lab.common.simulation import load_controller, run_simulation
 from vdm_lab.common.types import LabConfig
@@ -169,6 +170,18 @@ def parse_args():
         help="手动覆盖速度档位，单位 m/s",
     )
     parser.add_argument(
+        "--dt",
+        type=float,
+        default=None,
+        help="控制与车辆更新周期 [s]；默认 0.1，实车前可用 0.0333333 对齐 30 Hz",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=str,
+        default=None,
+        help="指定本次保存目录；目录必须为空，便于批量实验稳定归档",
+    )
+    parser.add_argument(
         "--animate",
         action="store_true",
         help="显示实时动画",
@@ -230,6 +243,10 @@ def main():
         raise SystemExit("--basemap-retries 不能为负数。")
     if args.basemap_max_pixels < 256:
         raise SystemExit("--basemap-max-pixels 不能小于 256。")
+    if args.dt is not None and args.dt <= 0.0:
+        raise SystemExit("--dt 必须为正数。")
+    if args.output_dir and not (args.save_log or args.save_fig or args.save_gif):
+        raise SystemExit("--output-dir 需要与至少一个 --save-* 选项一起使用。")
 
     map_origin = args.map_origin
     if map_origin is None and args.basemap == "geojson":
@@ -252,9 +269,15 @@ def main():
 
     output_dir = None
     if args.save_log or args.save_fig or args.save_gif:
-        output_dir = create_output_dir(
-            f"{args.algo}_{route_label}_{args.speed_mode}"
-        )
+        if args.output_dir:
+            output_dir = FsPath(args.output_dir)
+            if output_dir.exists() and any(output_dir.iterdir()):
+                raise SystemExit(f"--output-dir 已存在且非空：{output_dir}")
+            output_dir.mkdir(parents=True, exist_ok=True)
+        else:
+            output_dir = create_output_dir(
+                f"{args.algo}_{route_label}_{args.speed_mode}"
+            )
 
     config = LabConfig(
         vehicle=make_vehicle_config(args.vehicle)
@@ -281,6 +304,8 @@ def main():
     config.sim.show_history_ghosts = args.history_ghosts
     config.sim.history_ghost_stride = args.ghost_stride
     config.sim.history_ghost_count = args.ghost_count
+    if args.dt is not None:
+        config.sim.dt = args.dt
 
     if args.target_speed is not None:
         config.sim.target_speed = args.target_speed
@@ -317,6 +342,21 @@ def main():
         save_reference_path(output_dir, path)
         save_predictions(output_dir, predictions)
         save_metrics(output_dir, metrics)
+        save_run_metadata(
+            output_dir,
+            {
+                "algorithm": args.algo,
+                "algorithm_version": args.version,
+                "route": route_label,
+                "route_source": "gpx" if args.gpx else "built_in",
+                "speed_mode": args.speed_mode,
+                "target_speed_override_mps": args.target_speed,
+                "vehicle": args.vehicle,
+                "control_dt_s": config.sim.dt,
+                "waypoint_ds_m": config.sim.waypoint_ds,
+                "gpx_file": args.gpx,
+            },
+        )
 
     if args.save_fig:
         save_summary(
@@ -354,6 +394,7 @@ def main():
 
     print(f"algo={args.algo}, version={args.version}")
     print(f"speed_mode={args.speed_mode}, vehicle={args.vehicle}")
+    print(f"control_dt={config.sim.dt:.6f} s")
     if args.basemap != "none":
         print(f"basemap={args.basemap}")
     if map_origin is not None:
@@ -395,6 +436,12 @@ def main():
     print(
         f"min_speed="
         f"{metrics['min_speed_mps']:.3f} m/s"
+    )
+    print(
+        "control_compute_mean="
+        f"{metrics['control_compute_mean_ms']:.3f} ms, "
+        "p95="
+        f"{metrics['control_compute_p95_ms']:.3f} ms"
     )
 
     if output_dir is not None:

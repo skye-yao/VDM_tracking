@@ -1,5 +1,6 @@
 import importlib
 import math
+import time as wall_time
 
 import numpy as np
 
@@ -144,13 +145,20 @@ def run_simulation(
         reference = tracker.nearest(state)
         dist_goal = distance_to_goal(state, path)
 
+        compute_started = wall_time.perf_counter()
         command = controller_module.control(
             state,
             reference,
             previous_control,
             config,
         )
-        command = limit_command(command, config.vehicle)
+        control_compute_ms = (wall_time.perf_counter() - compute_started) * 1000.0
+        command = limit_command(
+            command,
+            config.vehicle,
+            previous_command=previous_control,
+            dt=config.sim.dt,
+        )
 
         prediction = getattr(command, "prediction", None)
         if prediction is not None:
@@ -175,6 +183,7 @@ def run_simulation(
                 curvature=reference.curvature,
                 normal_accel=normal_acceleration(state.v, reference.curvature),
                 target_speed=reference.target_speed,
+                control_compute_ms=control_compute_ms,
             )
         )
 

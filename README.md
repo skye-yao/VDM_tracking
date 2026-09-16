@@ -370,6 +370,33 @@ python run_experiment.py --algo pp --version student --route double_lane_change
 
 ## 7. 输出文件
 
+### 批量消融：三个算法、三条路线、三档速度
+
+默认批量实验固定使用 PP、运动学 LQR、线性 MPC，以及双移线、直角弯、S 弯和 low / medium / high 速度档，共 27 组。每组均保存日志与汇总图；完成后自动生成总表和热力图。
+
+```powershell
+python scripts/run_ablation.py
+```
+
+为在仿真中预先对齐实车约 30 Hz 的跟踪控制周期，可以显式设置：
+
+```powershell
+python scripts/run_ablation.py --dt 0.0333333
+```
+
+指定输出根目录、只运行少量试验，或保存 GIF：
+
+```powershell
+python scripts/run_ablation.py `
+  --algorithms pp lqr_kinematic mpc `
+  --routes double_lane_change s_curve `
+  --speed-modes low high `
+  --output-root outputs/ablation_trial `
+  --save-gif
+```
+
+结果位于 `outputs/ablation_<时间戳>/`：`ablation_summary.csv` 用于报告表格，`ablation_summary.png` 汇总平均横向误差、RMSE、完成用时与平均控制计算耗时。只有仿真与实车使用同一车辆参数、路径和单位时，才可将这份表作为实车对照基线。
+
 使用 `--save-log`、`--save-fig` 或 `--save-gif` 后，结果保存到：
 
 ```text
@@ -379,7 +406,8 @@ outputs/<时间戳>_<算法>_<路线>_<速度档位>/
 常见文件：
 
 - `trajectory.csv`：每个仿真步的车辆状态、控制量、`beta`、`yaw_rate`、目标点编号、横向误差、航向误差、曲率和法向加速度
-- `metrics.json`：平均横向误差、最大横向误差、终点误差、最大转角、最大加速度、最大法向加速度、最大侧偏角、最大横摆角速度、是否到达终点
+  - `metrics.json`：平均/最大/P95 横向误差、RMSE、终点误差、完成用时、转角变化率、最大控制量与 PP/LQR/MPC 的单步计算耗时
+  - `run_metadata.json`：算法、路线、速度档、车辆参数组、控制周期等可复现实验信息
 - `summary.png`：轨迹、误差、速度、控制输入汇总图
 - `animation.gif`：路径跟踪过程动图，便于实验报告和课堂展示
 - `mpc_predictions.csv`：MPC 预测轨迹采样，仅 MPC 输出
