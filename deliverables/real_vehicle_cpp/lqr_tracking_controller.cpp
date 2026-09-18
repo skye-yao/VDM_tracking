@@ -16,7 +16,7 @@ bool LQRTrackingController::init(ros::NodeHandle &nh,
                                  ros::NodeHandle &nh_private) {
   nh_private.param<int>("lqr_iteration_range", iterationRange_, 100);
   nh_private.param<float>("lqr_QValue", QValue_, 3.0);
-  nh_private.param<float>("lqr_RValue_", RValue_, 2.0);
+  nh_private.param<float>("lqr_RValue", RValue_, 2.0);
   nh_private.param<double>("lqr_iteration_eps", iterationEps_, 1.0e-4);
   nh_private.param<float>("max_side_accel", max_side_accel_, 1.0);
   if (!vehicle_model_) {

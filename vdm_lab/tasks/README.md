@@ -14,6 +14,8 @@ GPX 路线叠加离线 GeoJSON 底图的专项实验（含 Ubuntu / Windows 兼�
 
 准备上实车时，使用 [real_vehicle_log_and_analysis_template.md](real_vehicle_log_and_analysis_template.md) 统一记录参数、ROS 数据、误差指标与仿真-实车对照；实际车辆操作仍以课程现场规程为准。
 
+需要与助教、队友或实车负责人对齐实验范围、接口、数据口径和责任分工时，可直接使用 [path_tracking_real_vehicle_alignment.md](path_tracking_real_vehicle_alignment.md)。
+
 > Windows 用户请不要把下面标为 `bash` 的多行命令直接粘贴到 PowerShell：
 > Bash 的续行符是 `\`，PowerShell 的续行符是反引号 `` ` ``。默认 PP +
 > GPX + GeoJSON 示例可分别通过 `bash scripts/run_pp.sh` 或
