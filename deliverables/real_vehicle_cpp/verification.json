@@ -1,0 +1,14 @@
+{
+  "status": "passed",
+  "model_cases": 27,
+  "max_closed_loop_spectral_radius_100_iterations": 0.9952047731509719,
+  "checks": [
+    "analytic model vs finite differences",
+    "LQR vs scipy DARE",
+    "LQR and PP corrective direction",
+    "PP endpoint and coincident point",
+    "yaw wrap",
+    "no remaining template TODO"
+  ],
+  "limitation": "Independent Python numerical checks only; ROS C++ build not performed."
+}
